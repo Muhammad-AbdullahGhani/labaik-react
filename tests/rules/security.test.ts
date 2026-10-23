@@ -13,7 +13,7 @@ import { ref, uploadBytes, deleteObject, getBytes } from 'firebase/storage';
 let env: RulesTestEnvironment;
 before(async () => {
   env = await initializeTestEnvironment({
-    projectId: 'demo-labaik-field',
+    projectId: process.env.GCLOUD_PROJECT ?? 'demo-labaik-field',
     firestore: { rules: readFileSync('rules/firestore.rules', 'utf8') },
     storage: { rules: readFileSync('rules/storage.rules', 'utf8') },
   });

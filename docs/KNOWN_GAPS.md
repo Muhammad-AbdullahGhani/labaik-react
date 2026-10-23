@@ -50,3 +50,13 @@ The latest 90-minute scope excludes the following. None is claimed implemented.
 - API/UI native execution has not been rehearsed on a device. Automated proof is backend,
   pure TS/SQLite, login component tests and bundle/prebuild validation only. How I would
   close this: run the README five-minute script on the signed development APK and retain logs.
+
+## Extension decisions (supersede matching original cuts as phases complete)
+
+- Phase 1 adds supervisor job creation and initial dispatch, replacing that earlier cut.
+  Dispatch cursor fairness is per supervisor. How I would make it project-global: use a
+  dedicated transactional dispatch-state document and test competing supervisors; this
+  extension preserves the four-collection constraint instead.
+- If all performers have active locks, the form explains that no performer is available.
+  How I would queue unoffered jobs: persist an available state and have a reconciling
+  dispatcher offer them when a performer becomes free.

@@ -4,7 +4,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST)
   throw Error('Emulators required');
-initializeApp({ projectId: 'demo-labaik-field' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'demo-labaik-field' });
 async function verify() {
   const db = getFirestore(),
     auth = getAuth();

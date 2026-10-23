@@ -6,7 +6,7 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST)
   throw Error('Emulators required');
-initializeApp({ projectId: 'demo-labaik-field' });
+initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'demo-labaik-field' });
 const db = getFirestore(),
   auth = getAuth();
 const tokens: Record<string, string> = {};
@@ -27,14 +27,17 @@ async function signIn(uid: string) {
 async function call(name: string, uid: string | null, data: unknown = {}) {
   const payload =
     name === 'acceptOffer' ? { round: 0, ...(data as Record<string, unknown>) } : data;
-  const response = await fetch(`http://127.0.0.1:5001/demo-labaik-field/us-central1/${name}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(uid ? { Authorization: `Bearer ${tokens[uid]}` } : {}),
+  const response = await fetch(
+    `http://127.0.0.1:15001/${process.env.GCLOUD_PROJECT ?? 'demo-labaik-tests'}/us-central1/${name}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(uid ? { Authorization: `Bearer ${tokens[uid]}` } : {}),
+      },
+      body: JSON.stringify({ data: payload }),
     },
-    body: JSON.stringify({ data: payload }),
-  });
+  );
   const body = (await response.json()) as {
     result?: unknown;
     error?: { status: string; message: string; details?: { reason: string } };
@@ -265,4 +268,63 @@ test('ordered replay receipts, version conflict, account guard, geofence and loc
     complete,
   );
   assert.equal((await db.doc('jobs/race-job').get()).data()?.status, 'complete');
+});
+
+test('supervisor creates and initially dispatches jobs atomically, idempotently and round-robin', async () => {
+  await db.doc('users/supervisor').update({ lastDispatchUid: '' });
+  const draft = {
+    title: 'Created in app',
+    fee: 15000,
+    currency: 'SAR',
+    location: { latitude: 21.4225, longitude: 39.8262 },
+    startsAt: Date.now(),
+    endsAt: Date.now() + 3600000,
+    proofLabels: ['Show completed work'],
+  };
+  assert.equal(
+    (await call('createJob', 'performer-a', { requestId: 'denied', job: draft })).error?.status,
+    'PERMISSION_DENIED',
+  );
+  assert.equal(
+    (await call('createJob', 'supervisor', { requestId: 'invalid', job: { ...draft, fee: 0 } }))
+      .error?.status,
+    'INVALID_ARGUMENT',
+  );
+  const [a, b] = await Promise.all([
+    call('createJob', 'supervisor', { requestId: 'creation-1', job: draft }),
+    call('createJob', 'supervisor', { requestId: 'creation-1', job: draft }),
+  ]);
+  assert.ok(a.result);
+  assert.deepEqual(a, b);
+  const created = a.result as { jobId: string; offerId: string; performerId: string };
+  const job = (await db.doc(`jobs/${created.jobId}`).get()).data();
+  assert.equal(job?.fee, 15000);
+  assert.equal(job?.status, 'offered');
+  assert.deepEqual(job?.requiredSteps, ['proof-1']);
+  const offer = (await db.doc(`offers/${created.offerId}`).get()).data();
+  assert.equal(offer?.performerId, created.performerId);
+  assert.ok(offer?.expiresAt.toMillis() > Date.now());
+  assert.equal(
+    (
+      await call('createJob', 'supervisor', {
+        requestId: 'creation-1',
+        job: { ...draft, title: 'Other intent' },
+      })
+    ).error?.details?.reason,
+    'REQUEST_ID_REUSED',
+  );
+  const next = (await call('createJob', 'supervisor', { requestId: 'creation-2', job: draft }))
+    .result as { performerId: string };
+  assert.notEqual(next.performerId, created.performerId);
+  const eligible = await db
+    .collection('users')
+    .where('status', '==', 'approved')
+    .where('role', '==', 'performer')
+    .get();
+  for (const user of eligible.docs) await db.doc(`activeJobs/${user.id}`).set({ jobId: 'busy' });
+  assert.equal(
+    (await call('createJob', 'supervisor', { requestId: 'no-free', job: draft })).error?.details
+      ?.reason,
+    'NO_AVAILABLE_PERFORMER',
+  );
 });

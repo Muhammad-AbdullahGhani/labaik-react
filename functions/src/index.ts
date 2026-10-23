@@ -11,6 +11,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as v1 from 'firebase-functions/v1';
 import { createHash } from 'node:crypto';
 import { geofence } from './domain/geofence';
+import { parseJobDraft } from './domain/job';
 
 initializeApp();
 const db = getFirestore();
@@ -187,6 +188,83 @@ export const getServerTime = onCall(options, async (request) => {
   const actor = identity(request);
   await db.runTransaction((tx) => approved(tx, actor));
   return { serverTime: Date.now() };
+});
+
+export const createJob = onCall(options, async (request) => {
+  const actor = identity(request, 'supervisor');
+  const requestId = id(request.data, 'requestId');
+  let draft;
+  try {
+    draft = parseJobDraft(request.data.job);
+  } catch (error) {
+    fail('invalid-argument', error instanceof Error ? error.message : 'INVALID_JOB');
+  }
+  const fingerprint = createHash('sha256').update(JSON.stringify(draft)).digest('hex');
+  const key = createHash('sha256').update(`${actor.uid}:${requestId}`).digest('hex').slice(0, 32);
+  const jobId = `job-${key}`,
+    offerId = `offer-${key}`;
+  return db.runTransaction(async (tx) => {
+    await approved(tx, actor);
+    const jobRef = db.doc(`jobs/${jobId}`);
+    const existing = (await tx.get(jobRef)).data();
+    if (existing) {
+      if (existing.createdBy !== actor.uid || existing.creationFingerprint !== fingerprint)
+        fail('invalid-argument', 'REQUEST_ID_REUSED');
+      return existing.creationResult;
+    }
+    if (draft.startsAt < Date.now() - 60_000 || draft.startsAt > Date.now() + 7 * 86_400_000)
+      fail('invalid-argument', 'INVALID_TIME_WINDOW');
+    const creatorRef = db.doc(`users/${actor.uid}`);
+    const creator = (await tx.get(creatorRef)).data();
+    const users = await tx.get(
+      db.collection('users').where('role', '==', 'performer').where('status', '==', 'approved'),
+    );
+    const ids = users.docs.map((user) => user.id).sort();
+    const locks = await Promise.all(ids.map((uid) => tx.get(db.doc(`activeJobs/${uid}`))));
+    const free = ids.filter((_, index) => !locks[index]?.exists);
+    const performerId = free.find((uid) => uid > (creator?.lastDispatchUid ?? '')) ?? free[0];
+    if (!performerId) fail('failed-precondition', 'NO_AVAILABLE_PERFORMER');
+    const result = { jobId, offerId, performerId };
+    const requiredSteps = draft.proofLabels.map((_, index) => `proof-${index + 1}`);
+    tx.create(jobRef, {
+      title: draft.title,
+      fee: draft.fee,
+      currency: draft.currency,
+      location: draft.location,
+      startsAt: Timestamp.fromMillis(draft.startsAt),
+      endsAt: Timestamp.fromMillis(draft.endsAt),
+      requiredSteps,
+      proofLabels: draft.proofLabels,
+      proofs: {},
+      proofSteps: [],
+      processedActions: {},
+      version: 1,
+      status: 'offered',
+      assignedTo: null,
+      offerId,
+      createdBy: actor.uid,
+      createdAt: Timestamp.now(),
+      creationFingerprint: fingerprint,
+      creationResult: result,
+    });
+    tx.create(db.doc(`offers/${offerId}`), {
+      jobId,
+      performerId,
+      status: 'pending',
+      round: 0,
+      expiresAt: Timestamp.fromMillis(Date.now() + 120_000),
+      summary: {
+        title: draft.title,
+        fee: draft.fee,
+        currency: draft.currency,
+        startsAt: Timestamp.fromMillis(draft.startsAt),
+        endsAt: Timestamp.fromMillis(draft.endsAt),
+        proofLabels: draft.proofLabels,
+      },
+    });
+    tx.update(creatorRef, { lastDispatchUid: performerId });
+    return result;
+  });
 });
 
 export const applyJobAction = onCall(options, async (request) => {

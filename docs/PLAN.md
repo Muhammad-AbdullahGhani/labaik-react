@@ -22,3 +22,30 @@ validate each task, update PROGRESS.md and commit it before starting the next.
 - Offer and queue screens explain the reduced proof action as a demo marker, not an uploaded video.
 - Use SQLite durable storage, React state for minimal UI and native Firebase session persistence. No additional global state library needed for these screens.
 - Reserve meaningful verification time. Do not use force dependency upgrades or claim native/provider validation from a JavaScript bundle.
+
+## Authorized extension: three sequential implementation phases
+
+The later user request extends the completed five-step scope. Keep the ongoing cloud APK
+build untouched; it contains its uploaded source snapshot. Native camera/video modules
+require a subsequent development APK. Preserve the user's EAS project link in app.json.
+
+1. Job creation: supervisor form validates title, SAR fee, time window, coordinates and
+   one-to-five proof labels. A callable atomically creates the job and first targeted
+   offer; a stable request ID prevents duplicate jobs. Dispatch cursor metadata stays in
+   the supervisor user document to retain four collections. Emulator tests cover roles,
+   validation, retries and initial round-robin selection. Use isolated test services.
+2. Video/upload: add SDK-compatible expo-camera, expo-video and FileSystem. Capture up to
+   180 seconds with camera selection, timer, preview and retake. Copy accepted recordings
+   into account-scoped durable storage and persist upload records in SQLite. Use native
+   Firebase Storage foreground transfer progress, persisted retry/backoff and cancellation
+   on account changes. Server reserves the attempt/path and verifies finalized metadata
+   before recording upload completion. Background/killed-app transfer and compression stay
+   explicit gaps. No hidden cloud dependency: emulator or real Firebase config selects target.
+3. Review/completion: supervisor securely downloads/previews uploaded attempts and approves
+   or rejects with a reason. Only the current attempt can be reviewed. Rejection permits a
+   new create-only path. All required proofs must be approved before completion releases
+   the active-job lock. Add malicious/stale/unauthorized attempt and lifecycle tests.
+
+Each phase runs lint, typecheck and relevant tests, updates architecture/gaps/progress and
+gets its own commit. No production deploy or extra EAS build is launched automatically.
+After implementation guide the user through emulator-on-phone or real-cloud setup and rebuild.

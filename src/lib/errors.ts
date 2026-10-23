@@ -8,6 +8,16 @@ export function errorReason(error: unknown): string {
 export function errorMessage(error: unknown) {
   const reason = errorReason(error);
   const messages: Record<string, string> = {
+    INVALID_TITLE: 'Enter a job title between 3 and 100 characters.',
+    INVALID_FEE: 'Enter a positive fee with at most two decimal places.',
+    INVALID_LOCATION: 'Enter valid latitude and longitude coordinates.',
+    INVALID_TIME_WINDOW: 'Use a future time window lasting no more than 24 hours.',
+    INVALID_PROOF_STEPS:
+      'Enter one to five different proof descriptions, at least 3 characters each.',
+    NO_AVAILABLE_PERFORMER:
+      'No approved performer is free. Finish an active job or approve another performer.',
+    REQUEST_ID_REUSED:
+      'This request ID was already used for a different job. Edit the form and submit again.',
     OFFER_EXPIRED: 'This offer expired. Wait for the next offer.',
     OFFER_ALREADY_TAKEN: 'Another acceptance won. This offer is already taken.',
     OFFER_NOT_YOURS: 'This offer was moved to another performer.',

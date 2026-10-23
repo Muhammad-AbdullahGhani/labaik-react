@@ -26,12 +26,15 @@ import { ActionQueue, ReplayEngine, type ActionKind, type QueueRow } from '../sr
 import { useSession } from '../src/features/useSession';
 import { LoginForm } from '../src/features/LoginForm';
 import { styles } from '../src/features/styles';
+import { CreateJobForm } from '../src/features/CreateJobForm';
 
 interface Offer {
   id: string;
   jobId: string;
   round: number;
   expiresAt: number;
+  title?: string;
+  fee?: number;
 }
 interface Job {
   id: string;
@@ -154,6 +157,8 @@ export default function HomeScreen() {
               jobId: String(value.jobId),
               round: Number(value.round ?? 0),
               expiresAt: value.expiresAt?.toMillis() ?? 0,
+              ...(value.summary?.title ? { title: String(value.summary.title) } : {}),
+              ...(typeof value.summary?.fee === 'number' ? { fee: value.summary.fee } : {}),
             };
           }),
         ),
@@ -320,6 +325,7 @@ export default function HomeScreen() {
               <Text style={styles.text}>Refreshing role credentials...</Text>
             ) : profile.role === 'supervisor' ? (
               <View style={styles.card}>
+                <CreateJobForm onCreate={(data) => call('createJob', data)} />
                 <Text accessibilityRole="header" style={styles.heading}>
                   Pending performers
                 </Text>
@@ -380,8 +386,12 @@ export default function HomeScreen() {
                       return (
                         <View key={`${offer.id}-${offer.round}`} style={styles.card}>
                           <Text style={styles.text}>
+                            {offer.title ? `${offer.title}\n` : ''}
                             Job {offer.jobId} / round {offer.round + 1}
                           </Text>
+                          {offer.fee !== undefined ? (
+                            <Text style={styles.text}>{(offer.fee / 100).toFixed(2)} SAR</Text>
+                          ) : null}
                           <Text accessibilityLiveRegion="polite" style={styles.heading}>
                             {remaining === null
                               ? 'Calibrating server time...'

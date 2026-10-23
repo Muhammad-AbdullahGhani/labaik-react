@@ -22,11 +22,11 @@
     "build:apk:dev": "npx eas-cli build --platform android --profile development",
     "build:apk:preview": "npx eas-cli build --platform android --profile preview",
     "config:demo": "node scripts/demo-config.cjs",
-    "test:rules": "node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only firestore,storage \"node --import tsx --test tests/rules/security.test.ts\"",
-    "test:integration": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only auth,firestore,functions \"node --import tsx --test tests/integration/functions.test.ts\"",
-    "test:unit": "node --import tsx --test tests/unit/queue.test.ts",
+    "test:rules": "node scripts/emulator-cli.cjs emulators:exec --config firebase.test.json --project demo-labaik-tests --only firestore,storage \"node --import tsx --test tests/rules/security.test.ts\"",
+    "test:integration": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --config firebase.test.json --project demo-labaik-tests --only auth,firestore,functions \"node --import tsx --test tests/integration/functions.test.ts\"",
+    "test:unit": "node --import tsx --test tests/unit/queue.test.ts tests/unit/jobs.test.ts",
     "demo:expire": "node --import tsx scripts/demo-expire.ts",
-    "test:demo": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only auth,firestore,functions,storage \"npm run seed && npm run seed && node --import tsx scripts/verify-seed.ts && node --import tsx --test tests/rules/security.test.ts && node --import tsx --test tests/integration/functions.test.ts\""
+    "test:demo": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --config firebase.test.json --project demo-labaik-tests --only auth,firestore,functions,storage \"npm run seed && npm run seed && node --import tsx scripts/verify-seed.ts && node --import tsx --test tests/rules/security.test.ts && node --import tsx --test tests/integration/functions.test.ts\""
   },
   "dependencies": {
     "expo": "~54.0.37",

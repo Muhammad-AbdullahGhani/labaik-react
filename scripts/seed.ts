@@ -2,7 +2,8 @@ import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 
-const projectId = 'demo-labaik-field';
+const projectId = process.env.GCLOUD_PROJECT ?? 'demo-labaik-field';
+if (!projectId.startsWith('demo-')) throw Error('Only demo projects may be seeded.');
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST) {
   throw new Error(
     'Seed requires FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST. Never seeds production.',

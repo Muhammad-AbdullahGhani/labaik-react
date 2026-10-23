@@ -195,3 +195,20 @@ alignment, a busy local port, a Windows Java/PATH launch issue, callable discove
 strict test types and stale-round intent. Tests are evidence, not a substitute for the
 candidate understanding the transaction reads/writes, stored receipts, epoch guard and
 known platform cuts. README supplies a timed demo and the reviewer-facing explanations.
+
+## Extension Phase 1 — supervisor creation and dispatch
+
+createJob validates a normalized title, integer SAR minor units, legal coordinates,
+future bounded time window and one-to-five distinct proof labels. A caller-generated
+request ID is scoped to the supervisor and hashed into stable job/offer IDs. The same
+payload returns the stored creation result; a changed payload with the same ID is rejected.
+The job, initial two-minute offer and creator's dispatch cursor commit in one transaction.
+The sorted approved-performer pool excludes active-job locks. The cursor is per supervisor;
+there is no new system collection or global cursor document. If nobody is free, creation
+fails clearly rather than leaving an undispatched job. Performer offer summaries expose
+title/fee while full jobs remain assignment-restricted. Rules still deny direct job creation.
+
+Tests now use firebase.test.json and project demo-labaik-tests with high, separate ports.
+The user's interactive demo services and EAS build are not stopped or reseeded. Seed helpers
+respect test-injected hosts/project ID and still refuse non-demo projects. Test fixture
+cleanup only affects the isolated emulator instance.

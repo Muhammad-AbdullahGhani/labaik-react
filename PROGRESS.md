@@ -25,3 +25,14 @@ are in scope. A box means checks passed and the task is ready for its focused co
 - Step 5: Login/pending/approval, targeted offers with server countdown and round-bound Accept/Decline, SQLite queue controls/status and confirmed account-only reset implemented. README includes APK/setup/test instructions and timed demo; architecture/cuts updated. Lint/typecheck/format, 25 tests, repeatable seed verification, Android prebuild and Android/iOS Hermes export pass. APK/device execution is waived/unverified; 27 audit package entries and all requested cuts are logged.
 
 - LAN follow-up: explicitly bind Emulator UI to 0.0.0.0 after confirming localhost returned 200 but Wi-Fi IP refused. Lint/typecheck and 11 UI/unit tests pass; restart required to verify LAN reachability.
+
+## Frontend demo extension — newly authorized
+
+The user requested these additions after the original five-step scope was delivered.
+The in-flight EAS build is left running and app.json's user-created EAS project link is preserved.
+
+- [x] Phase 1: Supervisor job creation form, validated/idempotent callable and initial round-robin dispatch
+- [ ] Phase 2: Three-minute video capture/retake/playback and persistent account-scoped foreground Firebase Storage upload/retry
+- [ ] Phase 3: Supervisor video approval/rejection, re-recording and approval-gated completion
+
+- Extension Phase 1: supervisor form and transactional idempotent creation/initial dispatch implemented. Lint/typecheck, 13 UI/unit tests, 6 rules tests, 9 HTTP integration tests, seed repeatability and both Hermes exports pass. Tests use isolated high ports/project; user app.json EAS link is not staged.
