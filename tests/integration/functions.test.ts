@@ -186,3 +186,75 @@ test('expired and taken errors, pending/suspended denial, decline idempotency an
   const time = (await call('getServerTime', 'performer-a')).result as { serverTime: number };
   assert.ok(Math.abs(time.serverTime - Date.now()) < 5000);
 });
+
+// Replay transport is tested against real callable authorization and durable server receipts.
+test('ordered replay receipts, version conflict, account guard, geofence and lock release', async () => {
+  await call('acceptOffer', 'performer-a', { offerId: 'race-offer' });
+  await db.doc('jobs/race-job').update({ location: { latitude: 21.4225, longitude: 39.8262 } });
+  const action = (
+    id: string,
+    kind: string,
+    payload: unknown = {},
+    jobVersion = 1,
+    uid = 'performer-a',
+  ) => ({ id, uid, jobId: 'race-job', jobVersion, kind, payload });
+  assert.equal(
+    (
+      await call(
+        'applyJobAction',
+        'performer-a',
+        action('wrong-account', 'start', {}, 1, 'performer-b'),
+      )
+    ).error?.details?.reason,
+    'ACCOUNT_MISMATCH',
+  );
+  assert.equal(
+    (await call('applyJobAction', 'performer-a', action('conflict', 'start', {}, 2))).error?.details
+      ?.reason,
+    'JOB_VERSION_CHANGED',
+  );
+  assert.equal(
+    (await call('applyJobAction', 'performer-a', action('skip', 'complete'))).error?.details
+      ?.reason,
+    'INVALID_TRANSITION',
+  );
+  const first = await call('applyJobAction', 'performer-a', action('start-1', 'start'));
+  assert.ok(first.result);
+  assert.deepEqual(await call('applyJobAction', 'performer-a', action('start-1', 'start')), first);
+  assert.equal(
+    (await call('applyJobAction', 'performer-a', action('start-1', 'arrive'))).error?.details
+      ?.reason,
+    'ACTION_ID_REUSED',
+  );
+  assert.equal(
+    (
+      await call(
+        'applyJobAction',
+        'performer-a',
+        action('arrive-bad', 'arrive', { latitude: 0, longitude: 0, accuracy: 1 }),
+      )
+    ).error?.details?.reason,
+    'GEOFENCE_REJECTED',
+  );
+  assert.ok(
+    (
+      await call(
+        'applyJobAction',
+        'performer-a',
+        action('arrive-1', 'arrive', { latitude: 21.4225, longitude: 39.8262, accuracy: 10 }),
+      )
+    ).result,
+  );
+  assert.ok(
+    (await call('applyJobAction', 'performer-a', action('proof-1', 'proof', { stepId: 'proof-1' })))
+      .result,
+  );
+  const complete = await call('applyJobAction', 'performer-a', action('complete-1', 'complete'));
+  assert.ok(complete.result);
+  assert.equal((await db.doc('activeJobs/performer-a').get()).exists, false);
+  assert.deepEqual(
+    await call('applyJobAction', 'performer-a', action('complete-1', 'complete')),
+    complete,
+  );
+  assert.equal((await db.doc('jobs/race-job').get()).data()?.status, 'complete');
+});

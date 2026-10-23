@@ -113,3 +113,32 @@ Approval is claim-first then status-finalized: cross-service atomicity is unavai
 Pending status still denies access if a crash occurs after the claim write; retry repairs
 it. Current status is checked independently of token claims. The Auth onCreate trigger is
 idempotent and never overwrites seeded/approved records.
+
+### Step 4: offline synchronization
+
+ActionQueue stores durable records in SQLite with uid, monotonic sequence, action ID,
+job/configuration version, kind/payload, attempts, retry deadline and status. The pure
+TypeScript replay engine depends on a tiny async SQL interface; Expo SQLite implements it
+on-device, while tests use a real SQLite database through Node's built-in test driver.
+A crash during a request leaves the action pending. Its next attempt sends the same ID;
+the server's per-job receipt map returns the stored result rather than reapplying effects.
+
+Replay is single-flight and strictly ordered for the active account. A failed, delayed or
+conflicted head blocks later work. Transient errors receive exponential backoff with bounded
+jitter; permanent errors stop. A changed job version becomes a retained conflict requiring
+review. The scope guard checks uid AND session epoch before sending and after awaiting a
+response, including A->B->A switches. The callable additionally rejects a payload uid that
+does not match the authenticated caller, preventing credential-switch leakage.
+
+applyJobAction independently validates ownership, approval, expected version, active lock,
+state transition, arrival bound and proof step. Receipts and state update in one transaction;
+completion releases the active-job lock in that transaction. The demo uses a configuration
+version that stays stable across workflow actions and changes only when job requirements
+change. Receipt reuse with a different normalized payload is rejected. The 32-action map
+limit is explicit demo scope, not a scalable receipt retention design.
+
+The shared pure geofence helper lives under functions/src/domain and is re-exported by the
+client, so server/client tests use the same math. It checks finite/legal coordinates,
+nonnegative accuracy, a mock-location flag and distance+accuracy <=300 m. The demo UI uses
+an explicitly labelled sample fix; real permission/location acquisition is outside this
+reduced UI scope. No video is captured or uploaded by the proof marker.

@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit && npm run typecheck --workspace functions",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "jest --runInBand",
+    "test": "jest --runInBand && npm run test:unit",
     "build:check": "expo export --platform android --platform ios",
     "functions:build": "npm run build --workspace functions",
     "emulators": "npm run functions:build && node scripts/emulator-cli.cjs emulators:start --project demo-labaik-field --only auth,firestore,functions,storage",
@@ -23,7 +23,8 @@
     "build:apk:preview": "npx eas-cli build --platform android --profile preview",
     "config:demo": "node scripts/demo-config.cjs",
     "test:rules": "node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only firestore,storage \"node --import tsx --test tests/rules/security.test.ts\"",
-    "test:integration": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only auth,firestore,functions \"node --import tsx --test tests/integration/functions.test.ts\""
+    "test:integration": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only auth,firestore,functions \"node --import tsx --test tests/integration/functions.test.ts\"",
+    "test:unit": "node --import tsx --test tests/unit/queue.test.ts"
   },
   "dependencies": {
     "expo": "~54.0.37",

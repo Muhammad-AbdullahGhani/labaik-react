@@ -9,6 +9,8 @@ import {
 } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as v1 from 'firebase-functions/v1';
+import { createHash } from 'node:crypto';
+import { geofence } from './domain/geofence';
 
 initializeApp();
 const db = getFirestore();
@@ -182,4 +184,92 @@ export const getServerTime = onCall(options, async (request) => {
   const actor = identity(request);
   await db.runTransaction((tx) => approved(tx, actor));
   return { serverTime: Date.now() };
+});
+
+export const applyJobAction = onCall(options, async (request) => {
+  const actor = identity(request, 'performer');
+  const actionId = id(request.data, 'id');
+  const uid = id(request.data, 'uid');
+  const jobId = id(request.data, 'jobId');
+  if (uid !== actor.uid) fail('permission-denied', 'ACCOUNT_MISMATCH');
+  const { kind, jobVersion } = request.data;
+  if (
+    !['start', 'arrive', 'proof', 'complete'].includes(kind) ||
+    !Number.isInteger(jobVersion) ||
+    jobVersion < 1
+  )
+    fail('invalid-argument', 'INVALID_ACTION');
+  const input = request.data.payload ?? {};
+  const payload =
+    kind === 'arrive'
+      ? {
+          latitude: input.latitude,
+          longitude: input.longitude,
+          accuracy: input.accuracy,
+          mocked: input.mocked === true,
+        }
+      : kind === 'proof'
+        ? { stepId: input.stepId }
+        : {};
+  const fingerprint = createHash('sha256')
+    .update(JSON.stringify({ uid, jobId, kind, jobVersion, payload }))
+    .digest('hex');
+  return db.runTransaction(async (tx) => {
+    await approved(tx, actor);
+    const ref = db.doc(`jobs/${jobId}`);
+    const lockRef = db.doc(`activeJobs/${uid}`);
+    const [snapshot, lock] = await Promise.all([tx.get(ref), tx.get(lockRef)]);
+    const job = snapshot.data();
+    if (!job || job.assignedTo !== uid) fail('permission-denied', 'JOB_NOT_ASSIGNED');
+    const receipts = job.processedActions ?? {};
+    const existing = receipts[actionId];
+    if (existing) {
+      if (existing.fingerprint !== fingerprint) fail('invalid-argument', 'ACTION_ID_REUSED');
+      return existing.result;
+    }
+    if (job.version !== jobVersion) fail('failed-precondition', 'JOB_VERSION_CHANGED');
+    if (lock.data()?.jobId !== jobId) fail('failed-precondition', 'ACTIVE_JOB_CHANGED');
+    if (Object.keys(receipts).length >= 32) fail('resource-exhausted', 'ACTION_RECEIPT_LIMIT');
+    const requiredState: Record<string, string[]> = {
+      start: ['accepted'],
+      arrive: ['started'],
+      proof: ['arrived', 'proof'],
+      complete: ['proof'],
+    };
+    if (!requiredState[kind]?.includes(job.status))
+      fail('failed-precondition', 'INVALID_TRANSITION');
+    if (
+      kind === 'arrive' &&
+      !geofence(
+        payload as { latitude: number; longitude: number; accuracy: number; mocked: boolean },
+        job.location ?? { latitude: NaN, longitude: NaN },
+      ).allowed
+    )
+      fail('failed-precondition', 'GEOFENCE_REJECTED');
+    const proofSteps: string[] = job.proofSteps ?? [];
+    if (kind === 'proof') {
+      if (typeof input.stepId !== 'string' || !job.requiredSteps.includes(input.stepId))
+        fail('invalid-argument', 'INVALID_PROOF_STEP');
+      if (!proofSteps.includes(input.stepId)) proofSteps.push(input.stepId);
+    }
+    if (
+      kind === 'complete' &&
+      !job.requiredSteps.every((step: string) => proofSteps.includes(step))
+    )
+      fail('failed-precondition', 'PROOF_STEPS_MISSING');
+    const statuses: Record<string, string> = {
+      start: 'started',
+      arrive: 'arrived',
+      proof: 'proof',
+      complete: 'complete',
+    };
+    const result = { id: actionId, status: statuses[kind], jobVersion: job.version };
+    tx.update(ref, {
+      status: result.status,
+      proofSteps,
+      processedActions: { ...receipts, [actionId]: { fingerprint, result } },
+    });
+    if (kind === 'complete') tx.delete(lockRef);
+    return result;
+  });
 });
