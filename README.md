@@ -17,7 +17,7 @@ In another terminal: `npm run seed`. This resets demo jobs/offers/locks. Open em
 at http://localhost:4000. Demo logins use password `DemoPass123!`:
 `supervisor@labaik.test`, `performer-a@labaik.test`, `performer-b@labaik.test`, `pending@labaik.test`.
 Keep emulators running while using the app. Re-seed to reset the two-minute offer deadline.
-Ports: Auth 9099, Firestore 8080, Functions 5001, Storage 9199. These are local demo
+Ports: Auth 9099, Firestore 8180, Functions 5001, Storage 9199. These are local demo
 services; binding to 0.0.0.0 enables a phone on the same trusted LAN. Do not expose them publicly.
 On Windows use npm.cmd/npx.cmd and Copy-Item .env.example .env if PowerShell blocks scripts.
 

@@ -1,6 +1,24 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    function approved() {
+      return request.auth != null
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.status == 'approved'
+        && request.auth.token.role == firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function assigned(jobId, uid) {
+      return approved() && request.auth.uid == uid && request.auth.token.role == 'performer'
+        && firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.assignedTo == uid;
+    }
+    match /proofs/{jobId}/{uid}/{step}/{file} {
+      allow read: if assigned(jobId, uid) || (approved() && request.auth.token.role == 'supervisor');
+      allow write: if assigned(jobId, uid)
+        && resource == null && request.resource != null
+        && file.matches('.*[.]mp4')
+        && step in firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.requiredSteps
+        && request.resource.contentType == 'video/mp4'
+        && request.resource.size > 0 && request.resource.size <= 60 * 1024 * 1024;
+    }
     match /{path=**} { allow read, write: if false; }
   }
 }

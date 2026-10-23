@@ -60,3 +60,23 @@ Codex converts the supplied requirements into small implementation tasks, writes
 and tests, runs validation and records actual evidence. The implementation deliberately
 uses explicit transactions and a small queue state machine so the candidate can explain
 each invariant. Generated code is checked with real emulators, not trusted by inspection.
+
+### Step 2: access model
+
+Rules require both approved user status and a matching custom role claim. A user may read
+their own status document while pending/suspended so the status screen can render; all
+workload reads/writes remain denied. Roles/claims and activeJobs are server-owned.
+Performers can only read assigned jobs and their own targeted offers. Fees and assignment
+cannot be edited by clients. Direct workflow writes only permit accepted->started->arrived;
+proof/completion and lock release go through the replay callable. Supervisor final approval
+requires complete->approved. Everything else is denied by default.
+Storage checks current user status and job assignment via Firestore, validates step/MIME,
+requires a new object and permits 1..60 MiB bytes (60*1024*1024 inclusive). Deletes and
+updates are denied. Real emulator tests include a 60 MiB payload and one byte over.
+
+### Setup validation evidence
+
+The scoped setup passed lint, root/Functions typecheck, Jest route smoke test and Functions
+compilation. Expo public config resolves with RN Firebase plugins and the Android package.
+RN Firebase is pinned to 23.5 and Firebase JS tooling to 12.4 to avoid Node-version drift.
+The user explicitly waived a native build as a blocker; native execution remains unverified.

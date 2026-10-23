@@ -1,6 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function approved() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.status == 'approved'
+        && request.auth.token.role == get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function supervisor() { return approved() && request.auth.token.role == 'supervisor'; }
+    function performer() { return approved() && request.auth.token.role == 'performer'; }
+    match /users/{uid} {
+      // Own status must be readable to render pending/suspended screens; no workload access.
+      allow read: if request.auth != null && (request.auth.uid == uid || supervisor());
+      allow write: if false;
+    }
+    match /jobs/{id} {
+      allow read: if supervisor() || (performer() && resource.data.assignedTo == request.auth.uid);
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && ((supervisor() && resource.data.status == 'complete' && request.resource.data.status == 'approved')
+        || (performer() && resource.data.assignedTo == request.auth.uid
+          && ((resource.data.status == 'accepted' && request.resource.data.status == 'started')
+            || (resource.data.status == 'started' && request.resource.data.status == 'arrived'))));
+      allow create, delete: if false;
+    }
+    match /offers/{id} {
+      allow read: if supervisor() || (performer() && resource.data.performerId == request.auth.uid);
+      allow write: if false;
+    }
+    match /activeJobs/{uid} {
+      allow read: if supervisor() || (performer() && request.auth.uid == uid);
+      allow write: if false;
+    }
     match /{path=**} { allow read, write: if false; }
   }
 }

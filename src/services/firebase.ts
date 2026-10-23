@@ -14,7 +14,7 @@ export const storage = getStorage(app);
 if (process.env.EXPO_PUBLIC_USE_EMULATORS !== 'false') {
   const host = process.env.EXPO_PUBLIC_EMULATOR_HOST ?? '10.0.2.2';
   connectAuthEmulator(auth, `http://${host}:9099`, { disableWarnings: true });
-  connectFirestoreEmulator(db, host, 8080);
+  connectFirestoreEmulator(db, host, 8180);
   connectFunctionsEmulator(functions, host, 5001);
   connectStorageEmulator(storage, host, 9199);
 }
