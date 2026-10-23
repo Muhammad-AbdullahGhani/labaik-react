@@ -1,0 +1,35 @@
+import { StyleSheet } from 'react-native';
+export const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f7f6f2' },
+  content: { padding: 20, gap: 16, paddingBottom: 48 },
+  title: { fontSize: 30, fontWeight: '700', color: '#173f35' },
+  heading: { fontSize: 21, fontWeight: '600', color: '#173f35' },
+  text: { fontSize: 16, lineHeight: 24, color: '#344b43' },
+  subtle: { fontSize: 14, lineHeight: 21, color: '#5c6962' },
+  card: {
+    backgroundColor: '#fff',
+    padding: 18,
+    gap: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#dde4dd',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#aebdb2',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    color: '#173f35',
+    backgroundColor: '#fff',
+  },
+  message: {
+    padding: 14,
+    backgroundColor: '#fff1cc',
+    color: '#514013',
+    fontSize: 15,
+    lineHeight: 22,
+    borderRadius: 8,
+  },
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+});

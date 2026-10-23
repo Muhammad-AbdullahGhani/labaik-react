@@ -40,7 +40,7 @@ async function seed() {
     fee: 15000,
     currency: 'SAR',
     location: { latitude: 21.4225, longitude: 39.8262 },
-    version: 1,
+    version: Date.now(),
     assignedTo: null,
     offerId: 'demo-offer',
     requiredSteps: ['proof-1'],

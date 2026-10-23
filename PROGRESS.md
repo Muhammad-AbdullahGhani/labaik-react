@@ -7,7 +7,7 @@ are in scope. A box means checks passed and the task is ready for its focused co
 - [x] 2. Firestore and Storage security rules with real emulator tests
 - [x] 3. Cloud Functions, atomic accept, round-robin expiry/server time and real concurrency tests
 - [x] 4. SQLite-backed offline action queue, replay/retry/conflict/account guard and geofence unit tests
-- [ ] 5. Minimal auth/approval/offers/countdown/queue UI, architecture, README and demo
+- [x] 5. Minimal auth/approval/offers/countdown/queue UI, architecture, README and demo
 
 ## Work notes
 
@@ -21,3 +21,5 @@ are in scope. A box means checks passed and the task is ready for its focused co
 - Step 3: Auth initialization/approval, idempotent transactional acceptance, lock, guarded decline, lazy/scheduled expiry and server time implemented. Seven real HTTP/emulator tests pass, including double tap, two-performer race, one-performer/two-job race and live/expired accept-versus-sweep. Lint/typecheck/Jest/Functions build pass.
 
 - Step 4: SQLite queue/replay, durable IDs/receipts, bounded jitter, retained conflicts, uid+epoch guard and shared geofence implemented. Eight real-SQLite/unit tests and eight callable emulator tests pass; lint/typecheck/Jest pass. Real GPS acquisition and conflict editor are explicitly cut.
+
+- Step 5: Login/pending/approval, targeted offers with server countdown and round-bound Accept/Decline, SQLite queue controls/status and confirmed account-only reset implemented. README includes APK/setup/test instructions and timed demo; architecture/cuts updated. Lint/typecheck/format, 25 tests, repeatable seed verification, Android prebuild and Android/iOS Hermes export pass. APK/device execution is waived/unverified; 27 audit package entries and all requested cuts are logged.

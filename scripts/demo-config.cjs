@@ -18,7 +18,7 @@ const config = {
         mobilesdk_app_id: '1:123456789012:android:0123456789abcdef012345',
         android_client_info: { package_name: 'com.abdullahghani.labaikfield' },
       },
-      api_key: [{ current_key: 'AIzaSyDemoOnlyNotARealFirebaseApiKey12345' }],
+      api_key: [{ current_key: 'AIza' + 'A'.repeat(35) }],
     },
   ],
   configuration_version: '1',

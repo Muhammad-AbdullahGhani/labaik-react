@@ -81,6 +81,9 @@ export class ActionQueue {
       payload: JSON.parse(row.payload) as Record<string, unknown>,
     }));
   }
+  async clear(uid: string) {
+    await this.db.runAsync('DELETE FROM actions WHERE uid = ?', uid);
+  }
   async update(
     row: QueueRow,
     status: ActionStatus,

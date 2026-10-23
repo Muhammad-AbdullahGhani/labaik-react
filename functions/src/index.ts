@@ -77,6 +77,8 @@ export const approveUser = onCall(options, async (request) => {
 export const acceptOffer = onCall(options, async (request) => {
   const actor = identity(request, 'performer');
   const offerId = id(request.data, 'offerId');
+  const round = request.data.round;
+  if (!Number.isInteger(round) || round < 0) fail('invalid-argument', 'ROUND_REQUIRED');
   return db.runTransaction(async (tx) => {
     await approved(tx, actor);
     const offerRef = db.doc(`offers/${offerId}`);
@@ -87,6 +89,7 @@ export const acceptOffer = onCall(options, async (request) => {
     const [jobSnap, lockSnap] = await Promise.all([tx.get(jobRef), tx.get(lockRef)]);
     const job = jobSnap.data();
     if (!job) fail('not-found', 'JOB_NOT_FOUND');
+    if (offer.round !== round) fail('deadline-exceeded', 'OFFER_EXPIRED');
     if (offer.status === 'accepted' && offer.acceptedBy === actor.uid) return offer.result;
     if (offer.status === 'accepted' || job.assignedTo)
       fail('already-exists', 'OFFER_ALREADY_TAKEN');

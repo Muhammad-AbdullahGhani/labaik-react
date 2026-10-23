@@ -25,13 +25,15 @@ async function signIn(uid: string) {
   return body.idToken;
 }
 async function call(name: string, uid: string | null, data: unknown = {}) {
+  const payload =
+    name === 'acceptOffer' ? { round: 0, ...(data as Record<string, unknown>) } : data;
   const response = await fetch(`http://127.0.0.1:5001/demo-labaik-field/us-central1/${name}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(uid ? { Authorization: `Bearer ${tokens[uid]}` } : {}),
     },
-    body: JSON.stringify({ data }),
+    body: JSON.stringify({ data: payload }),
   });
   const body = (await response.json()) as {
     result?: unknown;
@@ -176,11 +178,17 @@ test('expired and taken errors, pending/suspended denial, decline idempotency an
   await call('declineOffer', 'performer-a', { offerId: 'race-offer', round: 0 });
   assert.equal((await db.doc('offers/race-offer').get()).data()?.round, after?.round);
   assert.equal(
-    (await call('acceptOffer', 'performer-b', { offerId: 'race-offer' })).error,
+    (await call('acceptOffer', 'performer-b', { offerId: 'race-offer', round: 0 })).error?.details
+      ?.reason,
+    'OFFER_EXPIRED',
+  );
+  assert.equal(
+    (await call('acceptOffer', 'performer-b', { offerId: 'race-offer', round: 1 })).error,
     undefined,
   );
   assert.equal(
-    (await call('acceptOffer', 'performer-a', { offerId: 'race-offer' })).error?.details?.reason,
+    (await call('acceptOffer', 'performer-a', { offerId: 'race-offer', round: 1 })).error?.details
+      ?.reason,
     'OFFER_ALREADY_TAKEN',
   );
   const time = (await call('getServerTime', 'performer-a')).result as { serverTime: number };

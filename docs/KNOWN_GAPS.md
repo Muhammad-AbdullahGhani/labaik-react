@@ -27,3 +27,26 @@ The latest 90-minute scope excludes the following. None is claimed implemented.
 - Offline conflict handling detects, preserves and blocks actions; no conflict-resolution editor is included. How I would implement it: compare supervisor changes, let the performer discard or regenerate affected actions with new IDs after reviewing the refreshed job, and retain an audit trail.
 - Queue geofence demo uses labelled sample coordinates rather than device GPS. How I would implement it: expo-location permission/freshness/accuracy flows and platform mock-location signals, then send captured evidence to the existing shared bound check.
 - Queue metadata is stored in sandboxed SQLite without an added encryption layer; credentials never enter it. How I would implement stronger local protection: SQLCipher-capable builds and device-protected encryption keys, with per-user backup/retention policies.
+
+## Final validation boundaries
+
+- Android prebuild and normal Android/iOS Hermes exports now pass. Full APK compilation,
+  EAS credentials/signing and real device execution are still unverified. How I would
+  finish it: supply the documented EAS file variable, build/install both profiles and test
+  native Auth, Firestore, SQLite and LAN access on an Android device.
+- The demo supports confirmed discard of an entire account's local queue after review;
+  a production per-action reconciliation editor remains cut. Fresh seed versions prevent
+  old pending actions applying to a reset job. How I would improve it: offer selective
+  discard/rebase against an acknowledged server revision and an auditable receipt history.
+- `npm audit --omit=dev` reports **27 vulnerable package entries: 12 moderate and 15 high**,
+  not 27 distinct exploit proofs. Expo CLI tooling and Firebase dependency chains contribute
+  propagated entries; npm proposes breaking SDK changes/downgrades. No force fix was applied
+  within this fixed scope. How I would resolve it: review individual advisories, upgrade
+  Expo/RN Firebase/Node together on a compatible supported baseline, apply compatible
+  targeted patches, then repeat emulator tests and native build/device checks before release.
+- Android prebuild warns that automatic system theme integration needs expo-system-ui.
+  Dark-mode/a11y audit is cut; the demo content uses a light palette. How I would finish it:
+  add the SDK-compatible system UI module and explicit light/dark design tokens with device tests.
+- API/UI native execution has not been rehearsed on a device. Automated proof is backend,
+  pure TS/SQLite, login component tests and bundle/prebuild validation only. How I would
+  close this: run the README five-minute script on the signed development APK and retain logs.

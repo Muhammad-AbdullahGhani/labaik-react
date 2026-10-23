@@ -14,6 +14,7 @@ import {
   type AccountScope,
 } from '../../src/lib/queue';
 import { geofence } from '../../src/lib/geofence';
+import { errorReason, errorMessage, replayError } from '../../src/lib/errors';
 function connect(filename = ':memory:') {
   const db = new DatabaseSync(filename);
   const adapter: SqlDatabase = {
@@ -152,6 +153,9 @@ test('account guard isolates queues and ignores old in-flight callbacks includin
     ).replay();
     assert.equal(sent[1]?.id, 'b-action');
     assert.equal((await queue.list('a'))[0]?.status, 'pending');
+    await queue.clear('a');
+    assert.equal((await queue.list('a')).length, 0);
+    assert.equal((await queue.list('b')).length, 1);
   } finally {
     db.close();
   }
@@ -229,4 +233,20 @@ test('geofence uses distance plus accuracy and rejects invalid/mocked fixes', ()
     { ...target, accuracy: 1, mocked: true },
   ])
     assert.equal(geofence(fix, target).allowed, false);
+});
+
+test('native wrapped callable messages retain conflict/permanent categories and clear offer feedback', () => {
+  const wrapped = {
+    code: 'functions/failed-precondition',
+    message: '[functions/failed-precondition] JOB_VERSION_CHANGED',
+  };
+  assert.equal(errorReason(wrapped), 'JOB_VERSION_CHANGED');
+  assert.equal(replayError(wrapped).category, 'conflict');
+  assert.equal(
+    replayError({ code: 'functions/permission-denied', message: 'No access' }).category,
+    'permanent',
+  );
+  assert.equal(replayError(Error('network disconnected')).category, 'transient');
+  assert.match(errorMessage({ details: { reason: 'OFFER_ALREADY_TAKEN' } }), /already taken/);
+  assert.match(errorMessage({ message: '[functions/deadline-exceeded] OFFER_EXPIRED' }), /expired/);
 });

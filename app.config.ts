@@ -9,5 +9,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: 'com.abdullahghani.labaikfield',
     googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
   },
-  plugins: [...(config.plugins ?? []), '@react-native-firebase/app', '@react-native-firebase/auth'],
+  plugins: [
+    ...(config.plugins ?? []),
+    '@react-native-firebase/app',
+    '@react-native-firebase/auth',
+    './plugins/with-emulator-network.cjs',
+  ],
 });

@@ -142,3 +142,51 @@ client, so server/client tests use the same math. It checks finite/legal coordin
 nonnegative accuracy, a mock-location flag and distance+accuracy <=300 m. The demo UI uses
 an explicitly labelled sample fix; real permission/location acquisition is outside this
 reduced UI scope. No video is captured or uploaded by the proof marker.
+
+## Current scoped architecture and verification
+
+Minimal UI uses React hooks and Expo Router, not an additional state library. Native
+Firebase Auth owns persisted identity; a failed token refresh does not mean signed out.
+Own-status subscriptions drive pending/suspended views and force claim refresh after
+approval. A revision guard ignores stale refresh completions after a newer status event.
+Workload subscriptions start only after role credentials match current approved status.
+
+Offers are targeted and bind Accept/Decline to an offer round. Old intent cannot accept a
+later reoffered round after a timeout. The countdown calibrates against getServerTime with
+an RTT midpoint estimate and then advances using performance.now, not the wall clock;
+foreground and periodic recalibration handle reconnect/reopen. The deadline in the server
+transaction is authoritative, not the countdown. A client wall-clock change cannot grant
+an expired offer. User-facing errors distinguish expired, taken, moved and active-job cases.
+
+The queue adapter opens one Expo SQLite database. React only stores its rendered rows.
+The replay loop is single-flight and polls while approved, with persistent retry deadlines.
+Pausing replay invalidates the session generation before another queued action can start.
+A confirmed, uid-scoped local reset supports repeatable demo/conflict discard; it never
+changes server job state. Each re-seed creates a fresh configuration version, preventing
+old pending actions from being interpreted as work for a reset demo job.
+
+Android config uses com.abdullahghani.labaikfield and a gitignored local or EAS-injected
+Google Services file. A small config plugin permits HTTP solely for emulator builds so
+preview APKs can reach local emulators. EAS profiles explicitly choose development/preview
+environments and APK/internal distribution. Android prebuild succeeded; generated native
+files are excluded from Git, and full APK compilation/device execution is not claimed.
+
+### Verification evidence
+
+- Lint and app/Functions strict typecheck pass.
+- Two login UI tests pass; nine queue/SQLite/geofence/error-normalization tests pass.
+- Six real Firestore/Storage rules tests pass, including actual size-boundary uploads.
+- Eight HTTP/emulator integration tests pass, including true concurrent calls and replay receipts.
+- The full demo runner seeds twice, verifies users/claims/job counts, and runs both emulator suites.
+- Standard Android and iOS Hermes exports pass. Android prebuild resolves the Firebase plugins,
+  package ID, Google Services file and emulator HTTP manifest setting.
+- Native APK build and on-device sessions/SQLite/UI remain unverified by explicit scope waiver.
+
+### How I used AI — final handoff
+
+AI generated the implementation and adversarial tests, then exercised actual emulator
+requests, SQLite persistence and build tooling. Failures drove concrete fixes: dependency
+alignment, a busy local port, a Windows Java/PATH launch issue, callable discovery timeout,
+strict test types and stale-round intent. Tests are evidence, not a substitute for the
+candidate understanding the transaction reads/writes, stored receipts, epoch guard and
+known platform cuts. README supplies a timed demo and the reviewer-facing explanations.
