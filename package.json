@@ -17,12 +17,13 @@
     "test": "jest --runInBand",
     "build:check": "expo export --platform android --platform ios",
     "functions:build": "npm run build --workspace functions",
-    "emulators": "npm run functions:build && firebase emulators:start --project demo-labaik-field --only auth,firestore,functions,storage",
+    "emulators": "npm run functions:build && node scripts/emulator-cli.cjs emulators:start --project demo-labaik-field --only auth,firestore,functions,storage",
     "seed": "node scripts/seed-local.cjs",
     "build:apk:dev": "npx eas-cli build --platform android --profile development",
     "build:apk:preview": "npx eas-cli build --platform android --profile preview",
     "config:demo": "node scripts/demo-config.cjs",
-    "test:rules": "firebase emulators:exec --project demo-labaik-field --only firestore,storage \"node --import tsx --test tests/rules/security.test.ts\""
+    "test:rules": "node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only firestore,storage \"node --import tsx --test tests/rules/security.test.ts\"",
+    "test:integration": "npm run functions:build && node scripts/emulator-cli.cjs emulators:exec --project demo-labaik-field --only auth,firestore,functions \"node --import tsx --test tests/integration/functions.test.ts\""
   },
   "dependencies": {
     "expo": "~54.0.37",

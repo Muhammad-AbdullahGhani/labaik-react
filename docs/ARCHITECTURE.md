@@ -80,3 +80,36 @@ The scoped setup passed lint, root/Functions typecheck, Jest route smoke test an
 compilation. Expo public config resolves with RN Firebase plugins and the Android package.
 RN Firebase is pinned to 23.5 and Firebase JS tooling to 12.4 to avoid Node-version drift.
 The user explicitly waived a native build as a blocker; native execution remains unverified.
+
+### Step 3: data model and atomic acceptance
+
+| Collection | Authoritative fields                                                                                                                 |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| users      | email, role, status; Auth claims are written only by supervisor callable/admin seed                                                  |
+| jobs       | title, fee/currency, location, requiredSteps, version, status, assignedTo, offerId; queue receipts and proof markers added in step 4 |
+| offers     | jobId, performerId, status, expiresAt, round, acceptedBy and immutable acceptance result                                             |
+| activeJobs | document ID is uid; jobId is created atomically with acceptance and released on completion                                           |
+
+A transaction is required because accepting an offer changes three related documents.
+It reads live user status, the offer/job and active-job lock before any writes. Server time
+is checked on every retry. A duplicate call by the same accepted performer returns the
+stored result, including after the offer's former deadline. Other performers get a clear
+taken/not-targeted error. A different offer for the same performer contends on the uid lock.
+
+Expiry and decline use the same offer/job transaction boundary. The sweep rechecks expiry
+and assignment inside the transaction, so a stale sweep cannot reassign an accepted job.
+Round-robin chooses the next sorted approved performer without an active lock and wraps.
+No available performer leaves the offer expired for a future sweep. Decline includes the
+round to make old retries harmless. The scheduled function runs every minute; an
+emulator-only supervisor callable demonstrates the same sweep because scheduling itself
+is not emulated. A production expiry-forwarding delay up to the sweep interval is explicit.
+
+The concurrency tests use actual HTTP callable requests and real emulator transactions.
+Two different users race for one targeted offer (only its recipient is eligible); the
+stronger contention tests are simultaneous double taps and simultaneous offers competing
+for the same uid lock. Accept-versus-expiry tests cover both live and expired boundaries.
+
+Approval is claim-first then status-finalized: cross-service atomicity is unavailable.
+Pending status still denies access if a crash occurs after the claim write; retry repairs
+it. Current status is checked independently of token claims. The Auth onCreate trigger is
+idempotent and never overwrites seeded/approved records.
