@@ -23,3 +23,5 @@ are in scope. A box means checks passed and the task is ready for its focused co
 - Step 4: SQLite queue/replay, durable IDs/receipts, bounded jitter, retained conflicts, uid+epoch guard and shared geofence implemented. Eight real-SQLite/unit tests and eight callable emulator tests pass; lint/typecheck/Jest pass. Real GPS acquisition and conflict editor are explicitly cut.
 
 - Step 5: Login/pending/approval, targeted offers with server countdown and round-bound Accept/Decline, SQLite queue controls/status and confirmed account-only reset implemented. README includes APK/setup/test instructions and timed demo; architecture/cuts updated. Lint/typecheck/format, 25 tests, repeatable seed verification, Android prebuild and Android/iOS Hermes export pass. APK/device execution is waived/unverified; 27 audit package entries and all requested cuts are logged.
+
+- LAN follow-up: explicitly bind Emulator UI to 0.0.0.0 after confirming localhost returned 200 but Wi-Fi IP refused. Lint/typecheck and 11 UI/unit tests pass; restart required to verify LAN reachability.

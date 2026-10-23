@@ -145,6 +145,11 @@ reduced UI scope. No video is captured or uploaded by the proof marker.
 
 ## Current scoped architecture and verification
 
+LAN setup correction: Emulator UI must explicitly set host to 0.0.0.0 as well as the
+four backend services. The default UI listener was localhost-only; local curl returned
+200 on 127.0.0.1:4000 while the Wi-Fi IP refused connection. Updated firebase.json;
+the user must restart the running emulator process for the new binding to take effect.
+
 Minimal UI uses React hooks and Expo Router, not an additional state library. Native
 Firebase Auth owns persisted identity; a failed token refresh does not mean signed out.
 Own-status subscriptions drive pending/suspended views and force claim refresh after
