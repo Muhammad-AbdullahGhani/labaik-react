@@ -16,6 +16,9 @@ service firebase.storage {
         && resource == null && request.resource != null
         && file.matches('.*[.]mp4')
         && step in firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.requiredSteps
+        && firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.proofs[step].status == 'uploading'
+        && firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.proofs[step].jobVersion == firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.version
+        && firestore.get(/databases/(default)/documents/jobs/$(jobId)).data.proofs[step].path == 'proofs/' + jobId + '/' + uid + '/' + step + '/' + file
         && request.resource.contentType == 'video/mp4'
         && request.resource.size > 0 && request.resource.size <= 60 * 1024 * 1024;
     }

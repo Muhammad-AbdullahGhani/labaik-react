@@ -8,6 +8,19 @@ export function errorReason(error: unknown): string {
 export function errorMessage(error: unknown) {
   const reason = errorReason(error);
   const messages: Record<string, string> = {
+    PROOF_VIDEO_REQUIRED: 'Record and upload a video instead of using the old proof marker.',
+    ARRIVE_BEFORE_RECORDING: 'Arrive at the job before recording proof.',
+    INVALID_VIDEO: 'Use a nonempty MP4 up to 3 minutes and 60 MiB.',
+    UPLOAD_NOT_FOUND: 'Upload is not finished yet. It will retry.',
+    INVALID_UPLOADED_VIDEO:
+      'Uploaded file metadata does not match the reserved video. Retake the recording.',
+    LOCAL_VIDEO_MISSING_OR_CHANGED:
+      'The local recording is missing or changed. Discard this failed upload and retake it.',
+    PROOF_UPLOAD_IN_PROGRESS:
+      'This proof step already has an upload in progress. Retry or discard that upload first.',
+    PROOF_AWAITING_REVIEW:
+      'This video is already uploaded or approved. Wait for supervisor review.',
+    STALE_PROOF_ATTEMPT: 'This recording was replaced. The old attempt cannot update the step.',
     INVALID_TITLE: 'Enter a job title between 3 and 100 characters.',
     INVALID_FEE: 'Enter a positive fee with at most two decimal places.',
     INVALID_LOCATION: 'Enter valid latitude and longitude coordinates.',
@@ -47,6 +60,13 @@ export function replayError(error: unknown) {
       'ACCOUNT_MISMATCH',
       'ACTION_ID_REUSED',
       'ACTION_RECEIPT_LIMIT',
+      'LOCAL_VIDEO_MISSING_OR_CHANGED',
+      'INVALID_VIDEO',
+      'INVALID_UPLOADED_VIDEO',
+      'PROOF_UPLOAD_IN_PROGRESS',
+      'PROOF_AWAITING_REVIEW',
+      'STALE_PROOF_ATTEMPT',
+      'PROOF_VIDEO_REQUIRED',
     ].includes(reason)
   )
     return new ReplayError('permanent', errorMessage(error));

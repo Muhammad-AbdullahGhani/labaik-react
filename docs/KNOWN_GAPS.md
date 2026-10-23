@@ -60,3 +60,20 @@ The latest 90-minute scope excludes the following. None is claimed implemented.
 - If all performers have active locks, the form explains that no performer is available.
   How I would queue unoffered jobs: persist an available state and have a reconciling
   dispatcher offer them when a performer becomes free.
+
+- Extension Phase 2 now implements recording, preview/retake, durable local foreground
+  upload/retry and authenticated playback. Compression, background/killed-app continuation,
+  Wi-Fi-only native constraints and thumbnails are still not implemented. How I would finish:
+  add measured native compression/transmuxing, native durable sessions/WorkManager and
+  background URLSession, connectivity constraints and idempotent media processing.
+- Capture requests 720p/2 Mbps, not a guaranteed 50 MB output. The 60 MiB cap can stop a clip
+  before three minutes. iOS may produce MOV; it is rejected until proper MP4 conversion exists.
+  How I would finish: verify container/codec/duration on both platforms and transcode if needed.
+- Upload verification checks MIME, size and immutable object generation, not actual video
+  decoding or duration. How I would harden: ffprobe/thumbnail processing in a bounded worker
+  before exposing the step as reviewable; reject malformed media and enforce duration server-side.
+- Cancelled/superseded cloud objects and copy/cleanup interruptions can leave private orphans.
+  How I would finish: scheduled reconciliation/retention cleanup keyed by job/attempt generation,
+  with an on-device periodic prune that never removes pending-account files.
+- Camera, native transfer and playback need a fresh development APK and real-device tests.
+  JavaScript/Hermes/prebuild checks do not prove camera permission or physical transfer behavior.

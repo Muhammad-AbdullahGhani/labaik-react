@@ -27,6 +27,8 @@ import { useSession } from '../src/features/useSession';
 import { LoginForm } from '../src/features/LoginForm';
 import { styles } from '../src/features/styles';
 import { CreateJobForm } from '../src/features/CreateJobForm';
+import { ProofFeature } from '../src/features/ProofFeature';
+import type { ProofJob } from '../src/lib/proofs';
 
 interface Offer {
   id: string;
@@ -36,7 +38,7 @@ interface Offer {
   title?: string;
   fee?: number;
 }
-interface Job {
+interface Job extends ProofJob {
   id: string;
   title: string;
   status: string;
@@ -470,13 +472,24 @@ export default function HomeScreen() {
                       </Text>
                       <Text style={styles.subtle}>
                         Arrival uses job coordinates plus 10 m accuracy as a labelled sample, not
-                        live GPS. Proof is a demo marker, not a video.
+                        live GPS. Record and upload the required videos below before completion.
                       </Text>
-                      {(['start', 'arrive', 'proof', 'complete'] as const).map((kind) => (
+                      {(['start', 'arrive', 'complete'] as const).map((kind) => (
                         <Button
                           key={kind}
                           title={labels[kind]}
-                          disabled={busy || blocked || next[stage] !== kind}
+                          disabled={
+                            busy ||
+                            blocked ||
+                            next[stage] !== kind ||
+                            (kind === 'complete' &&
+                              !job.requiredSteps.every(
+                                (step) =>
+                                  ['uploaded', 'approved'].includes(
+                                    job.proofs?.[step]?.status ?? '',
+                                  ) && job.proofs?.[step]?.jobVersion === job.version,
+                              ))
+                          }
                           onPress={() => {
                             void run(() => enqueue(kind));
                           }}
@@ -486,6 +499,7 @@ export default function HomeScreen() {
                   ) : (
                     <Text style={styles.text}>Accept a job to queue its actions.</Text>
                   )}
+                  <ProofFeature key={user.uid} uid={user.uid} job={job} scope={scope} />
                   {blocked ? (
                     <Text accessibilityRole="alert" style={styles.message}>
                       Replay is blocked. Review the changed job or failed action. Local actions are

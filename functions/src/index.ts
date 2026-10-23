@@ -1,12 +1,8 @@
+import { fail, id, identity, approved } from './security';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, Timestamp, type Transaction } from 'firebase-admin/firestore';
-import {
-  onCall,
-  HttpsError,
-  type CallableRequest,
-  type FunctionsErrorCode,
-} from 'firebase-functions/v2/https';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { onCall } from 'firebase-functions/v2/https';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as v1 from 'firebase-functions/v1';
 import { createHash } from 'node:crypto';
@@ -17,27 +13,6 @@ initializeApp();
 const db = getFirestore();
 const adminAuth = getAuth();
 const options = { region: 'us-central1' };
-
-function fail(code: FunctionsErrorCode, reason: string): never {
-  throw new HttpsError(code, reason, { reason });
-}
-function id(data: unknown, field: string): string {
-  const value =
-    data && typeof data === 'object' ? (data as Record<string, unknown>)[field] : undefined;
-  if (typeof value !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(value))
-    fail('invalid-argument', 'INVALID_' + field);
-  return value;
-}
-function identity(request: CallableRequest<unknown>, role?: string) {
-  if (!request.auth) fail('unauthenticated', 'SIGN_IN_REQUIRED');
-  if (role && request.auth.token.role !== role) fail('permission-denied', 'ROLE_REQUIRED');
-  return { uid: request.auth.uid, role: request.auth.token.role as unknown };
-}
-async function approved(tx: Transaction, actor: { uid: string; role: unknown }) {
-  const user = (await tx.get(db.doc(`users/${actor.uid}`))).data();
-  if (user?.status !== 'approved' || user.role !== actor.role)
-    fail('permission-denied', 'USER_NOT_APPROVED');
-}
 
 export const onUserCreate = v1.auth.user().onCreate(async (user) => {
   await db.runTransaction(async (tx) => {
@@ -310,6 +285,7 @@ export const applyJobAction = onCall(options, async (request) => {
     }
     if (job.version !== jobVersion) fail('failed-precondition', 'JOB_VERSION_CHANGED');
     if (lock.data()?.jobId !== jobId) fail('failed-precondition', 'ACTIVE_JOB_CHANGED');
+    if (kind === 'proof') fail('failed-precondition', 'PROOF_VIDEO_REQUIRED');
     if (Object.keys(receipts).length >= 32) fail('resource-exhausted', 'ACTION_RECEIPT_LIMIT');
     const requiredState: Record<string, string[]> = {
       start: ['accepted'],
@@ -335,7 +311,12 @@ export const applyJobAction = onCall(options, async (request) => {
     }
     if (
       kind === 'complete' &&
-      !job.requiredSteps.every((step: string) => proofSteps.includes(step))
+      !job.requiredSteps.every(
+        (step: string) =>
+          proofSteps.includes(step) &&
+          ['uploaded', 'approved'].includes(job.proofs?.[step]?.status) &&
+          job.proofs?.[step]?.jobVersion === job.version,
+      )
     )
       fail('failed-precondition', 'PROOF_STEPS_MISSING');
     const statuses: Record<string, string> = {
@@ -354,3 +335,5 @@ export const applyJobAction = onCall(options, async (request) => {
     return result;
   });
 });
+
+export { beginProofUpload, finalizeProofUpload, cancelProofUpload } from './proofs';

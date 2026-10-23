@@ -212,3 +212,39 @@ Tests now use firebase.test.json and project demo-labaik-tests with high, separa
 The user's interactive demo services and EAS build are not stopped or reseeded. Seed helpers
 respect test-injected hosts/project ID and still refuse non-demo projects. Test fixture
 cleanup only affects the isolated emulator instance.
+
+## Extension Phase 2 — real foreground proof uploads
+
+Recording uses expo-camera (front/back, timer, preview/retake) with 180-second, 60 MiB,
+720p and 2 Mbps encoder targets. Actual duration/size remain device-dependent. A recording
+must be MP4; unsupported containers are rejected rather than mislabelled. The local copy
+is moved into a uid-scoped document directory before its SQLite upload record is committed.
+Low disk/missing files surface as errors; the original preview remains available on save failure.
+
+The upload queue is separate from action replay and runs while the approved performer is
+foregrounded, even without an active job (for lost-finalization acknowledgement recovery).
+A single worker persists attempt IDs, local paths, job version, progress, retries and status.
+The SDK handles resumable chunks during a foreground task; after process death a retry may
+restart transport. It checks for a finished object before uploading, so create-only rules
+never require overwriting. A completed local file is removed only after server finalization
+and the SQLite acknowledgement. Cleanup is best effort and may require a later prune pass.
+
+beginProofUpload reserves the current step's canonical path in jobs.proofs. Storage rules
+also require that reservation and matching job version. finalizeProofUpload checks actual
+bucket metadata (MIME/size/generation), then rechecks user/job/attempt transactionally before
+marking the step uploaded. There is no trusted client 'uploaded' flag. An idempotent callable
+is used instead of a Storage finalize trigger; the persistent worker repairs a lost response.
+Cancellation permits discarding a failed in-progress attempt; replacement uses a new UUID.
+New proof-marker actions are rejected; old receipts can still return their historic result.
+
+Native transfer guards run before and after asynchronous stages, with uid+session epoch,
+and the server independently compares payload uid to caller uid. App background/pause or
+account change cancels the task. Files/rows remain quarantined for their original account.
+Playback uses an authenticated Storage writeToFile download into an account-scoped cache;
+no permanent bearer download URL is persisted or logged. Cache copies are removed on close.
+
+The lazy media gate checks optional native modules before importing camera/video code.
+An older development APK can still show the job/offer UI and explains that rebuilding is
+required for video. A single typed legacy FileSystem bridge works around SDK 54's legacy
+entry resolving implementation .ts with incompatible optional-property annotations; our
+strict TypeScript settings remain enabled and calls use the SDK's published declarations.

@@ -1,8 +1,21 @@
-import { before, beforeEach, test } from 'node:test';
+import { after, before, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { getStorage as adminStorage } from 'firebase-admin/storage';
+import { initializeApp as initializeClientApp, deleteApp, type FirebaseApp } from 'firebase/app';
+import {
+  getAuth as clientAuth,
+  connectAuthEmulator,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import {
+  getStorage as clientStorage,
+  connectStorageEmulator,
+  ref,
+  uploadBytes,
+} from 'firebase/storage';
 
 if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_HOST)
   throw Error('Emulators required');
@@ -11,6 +24,29 @@ const db = getFirestore(),
   auth = getAuth();
 const tokens: Record<string, string> = {};
 const password = 'DemoPass123!';
+const clients = new Map<string, FirebaseApp>();
+const projectId = process.env.GCLOUD_PROJECT ?? 'demo-labaik-tests';
+async function uploadAs(uid: string, path: string, size = 4, contentType = 'video/mp4') {
+  let app = clients.get(uid);
+  if (!app) {
+    app = initializeClientApp(
+      { projectId, apiKey: 'demo-key', storageBucket: `${projectId}.appspot.com` },
+      uid,
+    );
+    clients.set(uid, app);
+    const auth = clientAuth(app);
+    connectAuthEmulator(auth, `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}`, {
+      disableWarnings: true,
+    });
+    await signInWithEmailAndPassword(auth, `${uid}@labaik.test`, password);
+    const [host, port] = process.env.FIREBASE_STORAGE_EMULATOR_HOST!.split(':');
+    connectStorageEmulator(clientStorage(app), host!, Number(port));
+  }
+  return uploadBytes(ref(clientStorage(app), path), new Uint8Array(size), { contentType });
+}
+after(async () => {
+  await Promise.all([...clients.values()].map((app) => deleteApp(app)));
+});
 async function signIn(uid: string) {
   const response = await fetch(
     `http://${process.env.FIREBASE_AUTH_EMULATOR_HOST}/identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=demo-key`,
@@ -256,10 +292,28 @@ test('ordered replay receipts, version conflict, account guard, geofence and loc
       )
     ).result,
   );
-  assert.ok(
+  assert.equal(
     (await call('applyJobAction', 'performer-a', action('proof-1', 'proof', { stepId: 'proof-1' })))
-      .result,
+      .error?.details?.reason,
+    'PROOF_VIDEO_REQUIRED',
   );
+  const upload = {
+    uid: 'performer-a',
+    jobId: 'race-job',
+    jobVersion: 1,
+    stepId: 'proof-1',
+    attemptId: 'proof-attempt-1',
+  };
+  const reservation = await call('beginProofUpload', 'performer-a', {
+    ...upload,
+    size: 4,
+    durationMs: 1000,
+  });
+  assert.ok(reservation.result);
+  await uploadAs('performer-a', (reservation.result as { path: string }).path);
+  const finalized = await call('finalizeProofUpload', 'performer-a', upload);
+  assert.ok(finalized.result);
+  assert.deepEqual(await call('finalizeProofUpload', 'performer-a', upload), finalized);
   const complete = await call('applyJobAction', 'performer-a', action('complete-1', 'complete'));
   assert.ok(complete.result);
   assert.equal((await db.doc('activeJobs/performer-a').get()).exists, false);
@@ -326,5 +380,70 @@ test('supervisor creates and initially dispatches jobs atomically, idempotently 
     (await call('createJob', 'supervisor', { requestId: 'no-free', job: draft })).error?.details
       ?.reason,
     'NO_AVAILABLE_PERFORMER',
+  );
+});
+
+test('proof reservation and finalization validate roles, ownership, metadata, stale attempts and cancellation', async () => {
+  await call('acceptOffer', 'performer-a', { offerId: 'race-offer' });
+  await db.doc('jobs/race-job').update({ status: 'arrived' });
+  const data = {
+    uid: 'performer-a',
+    jobId: 'race-job',
+    jobVersion: 1,
+    stepId: 'proof-1',
+    attemptId: 'first-attempt',
+    size: 4,
+    durationMs: 1000,
+  };
+  assert.equal(
+    (await call('beginProofUpload', 'performer-b', data)).error?.status,
+    'PERMISSION_DENIED',
+  );
+  assert.equal(
+    (await call('beginProofUpload', 'supervisor', data)).error?.status,
+    'PERMISSION_DENIED',
+  );
+  assert.equal(
+    (await call('beginProofUpload', 'performer-a', { ...data, size: 60 * 1024 * 1024 + 1 })).error
+      ?.details?.reason,
+    'INVALID_VIDEO',
+  );
+  const first = await call('beginProofUpload', 'performer-a', data);
+  assert.ok(first.result);
+  assert.deepEqual(await call('beginProofUpload', 'performer-a', data), first);
+  assert.equal(
+    (await call('beginProofUpload', 'performer-a', { ...data, size: 5 })).error?.details?.reason,
+    'ACTION_ID_REUSED',
+  );
+  assert.equal(
+    (await call('finalizeProofUpload', 'performer-a', data)).error?.details?.reason,
+    'UPLOAD_NOT_FOUND',
+  );
+  assert.equal(
+    (await call('beginProofUpload', 'performer-a', { ...data, attemptId: 'other-attempt' })).error
+      ?.details?.reason,
+    'PROOF_UPLOAD_IN_PROGRESS',
+  );
+  assert.equal(
+    (await call('cancelProofUpload', 'performer-b', data)).error?.status,
+    'PERMISSION_DENIED',
+  );
+  assert.equal((await call('cancelProofUpload', 'performer-a', data)).error, undefined);
+  const replacement = { ...data, attemptId: 'replacement' };
+  const reserved = await call('beginProofUpload', 'performer-a', replacement);
+  assert.ok(reserved.result);
+  assert.equal(
+    (await call('finalizeProofUpload', 'performer-a', data)).error?.details?.reason,
+    'STALE_PROOF_ATTEMPT',
+  );
+  const path = (reserved.result as { path: string }).path;
+  // Admin bypass is deliberate here: the callable must independently reject bad metadata.
+  await adminStorage()
+    .bucket(`${projectId}.appspot.com`)
+    .file(path)
+    .save(Buffer.from([1, 2, 3, 4]), { contentType: 'text/plain' });
+  assert.equal(
+    (await call('finalizeProofUpload', 'performer-a', replacement)).error?.details?.reason,
+    'INVALID_UPLOADED_VIDEO',
   );
 });

@@ -32,7 +32,9 @@ The user requested these additions after the original five-step scope was delive
 The in-flight EAS build is left running and app.json's user-created EAS project link is preserved.
 
 - [x] Phase 1: Supervisor job creation form, validated/idempotent callable and initial round-robin dispatch
-- [ ] Phase 2: Three-minute video capture/retake/playback and persistent account-scoped foreground Firebase Storage upload/retry
+- [x] Phase 2: Three-minute video capture/retake/playback and persistent account-scoped foreground Firebase Storage upload/retry
 - [ ] Phase 3: Supervisor video approval/rejection, re-recording and approval-gated completion
 
 - Extension Phase 1: supervisor form and transactional idempotent creation/initial dispatch implemented. Lint/typecheck, 13 UI/unit tests, 6 rules tests, 9 HTTP integration tests, seed repeatability and both Hermes exports pass. Tests use isolated high ports/project; user app.json EAS link is not staged.
+
+- Extension Phase 2: real camera/preview/retake, SDK foreground uploads, durable SQLite transfer queue, attempt reservations/metadata finalization, private playback and cancellation implemented. Lint/typecheck, 17 UI/unit, 7 rules and 10 HTTP emulator tests pass; Hermes exports and Android permission prebuild pass. New APK/device verification, compression, thumbnails and killed-app continuation remain explicit gaps.

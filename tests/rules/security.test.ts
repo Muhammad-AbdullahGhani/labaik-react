@@ -50,6 +50,13 @@ after(async () => {
   await env?.cleanup();
 });
 const actor = (uid: string, role = 'performer') => env.authenticatedContext(uid, { role });
+async function reserve(path: string, jobId = 'a-job', stepId = 'proof-1') {
+  await env.withSecurityRulesDisabled(async (context) => {
+    await updateDoc(doc(context.firestore(), `jobs/${jobId}`), {
+      proofs: { [stepId]: { path, status: 'uploading', jobVersion: 1 } },
+    });
+  });
+}
 
 test('performer reads own job; cannot read another performer job, offer or lock', async () => {
   const db = actor('a').firestore();
@@ -90,6 +97,7 @@ test('invalid transitions fail; allowed transition and supervisor final approval
 });
 test('Storage accepts only assigned performer, valid step and MP4; denies overwrite/delete', async () => {
   const path = 'proofs/a-job/a/proof-1/valid.mp4';
+  await reserve(path);
   const file = ref(actor('a').storage(), path);
   await assertSucceeds(uploadBytes(file, new Uint8Array([1]), { contentType: 'video/mp4' }));
   await assertSucceeds(getBytes(file));
@@ -101,6 +109,7 @@ test('Storage accepts only assigned performer, valid step and MP4; denies overwr
     }),
   );
   await assertFails(getBytes(ref(actor('b').storage(), path)));
+  await reserve('proofs/a-job/a/proof-1/wrong.mp4');
   await assertFails(
     uploadBytes(
       ref(actor('a').storage(), 'proofs/a-job/a/proof-1/wrong.mp4'),
@@ -114,6 +123,7 @@ test('Storage accepts only assigned performer, valid step and MP4; denies overwr
     }),
   );
   for (const uid of ['pending', 'suspended']) {
+    await reserve(`proofs/${uid}-job/${uid}/proof-1/file.mp4`, `${uid}-job`);
     await assertFails(
       uploadBytes(
         ref(actor(uid).storage(), `proofs/${uid}-job/${uid}/proof-1/file.mp4`),
@@ -130,6 +140,7 @@ test('Storage accepts only assigned performer, valid step and MP4; denies overwr
 });
 test('Storage 60 MiB inclusive limit, oversize denied', { timeout: 120000 }, async () => {
   const storage = actor('a').storage();
+  await reserve('proofs/a-job/a/proof-1/boundary.mp4');
   await assertSucceeds(
     uploadBytes(
       ref(storage, 'proofs/a-job/a/proof-1/boundary.mp4'),
@@ -137,11 +148,34 @@ test('Storage 60 MiB inclusive limit, oversize denied', { timeout: 120000 }, asy
       { contentType: 'video/mp4' },
     ),
   );
+  await reserve('proofs/a-job/a/proof-1/large.mp4');
   await assertFails(
     uploadBytes(
       ref(storage, 'proofs/a-job/a/proof-1/large.mp4'),
       new Uint8Array(60 * 1024 * 1024 + 1),
       { contentType: 'video/mp4' },
     ),
+  );
+});
+
+test('Storage refuses unreserved, stale-version and completed upload attempts', async () => {
+  const path = 'proofs/a-job/a/proof-1/unreserved.mp4',
+    storage = actor('a').storage();
+  await assertFails(
+    uploadBytes(ref(storage, path), new Uint8Array([1]), { contentType: 'video/mp4' }),
+  );
+  await reserve(path);
+  await env.withSecurityRulesDisabled(async (context) =>
+    updateDoc(doc(context.firestore(), 'jobs/a-job'), { 'proofs.proof-1.jobVersion': 0 }),
+  );
+  await assertFails(
+    uploadBytes(ref(storage, path), new Uint8Array([1]), { contentType: 'video/mp4' }),
+  );
+  await reserve(path);
+  await env.withSecurityRulesDisabled(async (context) =>
+    updateDoc(doc(context.firestore(), 'jobs/a-job'), { 'proofs.proof-1.status': 'uploaded' }),
+  );
+  await assertFails(
+    uploadBytes(ref(storage, path), new Uint8Array([1]), { contentType: 'video/mp4' }),
   );
 });
