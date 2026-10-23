@@ -1,0 +1,13 @@
+import type { ConfigContext, ExpoConfig } from 'expo/config';
+
+export default ({ config }: ConfigContext): ExpoConfig => ({
+  ...config,
+  name: 'Labaik Field',
+  slug: 'labaik-field',
+  android: {
+    ...config.android,
+    package: 'com.abdullahghani.labaikfield',
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
+  },
+  plugins: [...(config.plugins ?? []), '@react-native-firebase/app', '@react-native-firebase/auth'],
+});

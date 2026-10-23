@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Labaik Field",
+    "slug": "labaik-field",
+    "version": "0.1.0",
+    "scheme": "labaik-field",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "bundleIdentifier": "com.labaik.field",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.labaik.field"
+    },
+    "plugins": ["expo-router", "expo-dev-client"]
+  }
+}

@@ -1,0 +1,12 @@
+node_modules/
+.expo/
+.npm-cache/
+.emulator-data/
+functions/lib/
+dist/
+coverage/
+android/
+ios/
+package-lock.json
+docs/assignment.md
+docs/SPEC.md
